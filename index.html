@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cuộc Đua Xe Tải Toán Học</title>
+  
+  <!-- Font & Libraries -->
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+  
+  <!-- Firebase App & Realtime Database (v9 Compatibility) -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
+
+  <style>
+    :root {
+      --primary: #FF6B6B;
+      --secondary: #4ECDC4;
+      --accent: #FFE66D;
+      --dark: #2C3E50;
+      --light: #F7F9FC;
+      --success: #2ECC71;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Nunito', sans-serif; user-select: none; }
+    body { background: #E0F7FA; color: var(--dark); min-height: 100vh; display: flex; flex-direction: column; }
+
+    /* Screen Views */
+    .screen { display: none; padding: 20px; max-width: 1200px; margin: 0 auto; width: 100%; }
+    .screen.active { display: flex; flex-direction: column; align-items: center; }
+
+    /* Card Box */
+    .card { background: white; border-radius: 20px; padding: 30px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); width: 100%; max-width: 500px; text-align: center; }
+    h1 { color: #D32F2F; font-size: 2rem; margin-bottom: 20px; text-shadow: 1px 1px 0px #FFF; }
+    
+    /* Form inputs */
+    input[type="text"] { width: 100%; padding: 14px; margin: 10px 0; border: 2px solid #CBD5E1; border-radius: 12px; font-size: 1.1rem; text-align: center; font-weight: bold; text-transform: uppercase; }
+    .checkbox-container { display: flex; align-items: center; justify-content: center; gap: 10px; margin: 15px 0; font-weight: 700; color: #475569; }
+    
+    /* Buttons */
+    .btn { background: #22C55E; color: white; border: none; padding: 14px 28px; border-radius: 12px; font-size: 1.2rem; font-weight: 800; cursor: pointer; transition: all 0.2s; box-shadow: 0 5px 0 #15803D; margin-top: 10px; width: 100%; }
+    .btn:active { transform: translateY(4px); box-shadow: 0 1px 0 #15803D; }
+    .btn-danger { background: #EF4444; box-shadow: 0 5px 0 #B91C1C; }
+    .btn-danger:active { box-shadow: 0 1px 0 #B91C1C; }
+    .btn-secondary { background: #3B82F6; box-shadow: 0 5px 0 #1D4ED8; margin-top: 5px; }
+
+    /* Lobby */
+    .lobby-container { display: flex; gap: 30px; width: 100%; flex-wrap: wrap; justify-content: center; }
+    .qr-box { background: white; padding: 20px; border-radius: 20px; box-shadow: 0 10px 20px rgba(0,0,0,0.05); text-align: center; display: flex; flex-direction: column; align-items: center; }
+    #qrcode { margin: 15px 0; padding: 10px; background: white; border-radius: 10px; border: 2px solid #E2E8F0; }
+    .players-list { flex: 1; min-width: 300px; background: white; padding: 20px; border-radius: 20px; box-shadow: 0 10px 20px rgba(0,0,0,0.05); }
+    .player-chip { background: #E0F2FE; color: #0369A1; padding: 10px 15px; border-radius: 30px; display: inline-block; margin: 5px; font-weight: 800; border: 2px solid #BAE6FD; }
+
+    /* Race Track */
+    .race-track-container { width: 100%; background: white; border-radius: 15px; padding: 15px; margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+    .lane { display: flex; align-items: center; margin: 8px 0; background: #F1F5F9; border-radius: 30px; padding: 5px 15px; position: relative; height: 45px; }
+    .lane-name { font-weight: 800; width: 100px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; z-index: 2; }
+    .track { flex: 1; position: relative; height: 100%; display: flex; align-items: center; }
+    .runner { position: absolute; left: 0%; transition: left 0.4s ease; font-size: 1.8rem; transform: translateX(-50%); z-index: 2; }
+    .finish-line { position: absolute; right: 0; top: 0; bottom: 0; width: 10px; background: repeating-linear-gradient(0deg, #000, #000 5px, #fff 5px, #fff 10px); border-radius: 0 30px 30px 0; }
+
+    /* Matching Game Area */
+    .game-board { display: flex; justify-content: space-between; width: 100%; gap: 20px; margin-top: 10px; }
+    .column { flex: 1; display: flex; flex-direction: column; gap: 15px; }
+
+    /* Truck Item (Left) */
+    .truck-card { background: #FF7043; color: white; padding: 10px 15px; border-radius: 12px; display: flex; align-items: center; gap: 10px; cursor: grab; font-weight: 800; font-size: 1.3rem; box-shadow: 0 6px 0 #D84315; touch-action: none; position: relative; }
+    .truck-card:active { cursor: grabbing; opacity: 0.8; }
+    .truck-icon { font-size: 2rem; }
+    .truck-card.matched { visibility: hidden; opacity: 0; }
+
+    /* Target Slot (Right) */
+    .target-slot { background: #37474F; color: white; padding: 15px; border-radius: 12px; font-weight: 800; font-size: 1.3rem; text-align: center; border: 3px dashed #78909C; min-height: 65px; display: flex; align-items: center; justify-content: center; transition: all 0.2s; }
+    .target-slot.hovered { background: #546E7A; border-color: #FFF; transform: scale(1.02); }
+    .target-slot.correct { background: #2E7D32; border-color: #4CAF50; border-style: solid; }
+
+    /* Controls Header */
+    .host-bar { width: 100%; background: #FEF08A; border: 2px solid #FDE047; padding: 10px 20px; border-radius: 12px; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center; }
+  </style>
+</head>
+<body>
+
+  <!-- 1. LOGIN SCREEN -->
+  <div id="screen-login" class="screen active">
+    <div class="card">
+      <h1>🚚 XE TẢI TOÁN HỌC</h1>
+      <input type="text" id="input-room" placeholder="NHẬP MÃ PHÒNG (VD: LOP3A)" value="LOP3A">
+      <input type="text" id="input-name" placeholder="NHẬP TÊN CỦA BẠN">
+      
+      <div class="checkbox-container">
+        <input type="checkbox" id="chk-host">
+        <label for="chk-host">Tôi là Giáo viên (Chủ phòng)</label>
+      </div>
+
+      <button class="btn" onclick="joinRoom()">VÀO PHÒNG</button>
+    </div>
+  </div>
+
+  <!-- 2. LOBBY SCREEN -->
+  <div id="screen-lobby" class="screen">
+    <h1 id="lobby-title">PHÒNG CHỜ: LOP3A</h1>
+    <div class="lobby-container">
+      <div class="qr-box">
+        <h3>Quét mã để vào phòng</h3>
+        <div id="qrcode"></div>
+        <p>Mã phòng: <b id="display-room-code" style="color: #D32F2F;">LOP3A</b></p>
+      </div>
+
+      <div class="players-list">
+        <h3>Danh sách học sinh (<span id="player-count">0</span>)</h3>
+        <hr style="margin: 10px 0;">
+        <div id="players-container"></div>
+        
+        <div id="host-controls" style="margin-top: 20px; display: none;">
+          <button class="btn" onclick="startGameByHost()">🚀 BẮT ĐẦU TRÒ CHƠI</button>
+        </div>
+        <p id="waiting-msg" style="margin-top: 20px; color: #64748B; font-weight: 700;">Đang chờ giáo viên bắt đầu...</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3. GAMEPLAY SCREEN -->
+  <div id="screen-game" class="screen">
+    <div id="host-bar" class="host-bar" style="display: none;">
+      <span><b>QUẢN LÝ PHÒNG (GIÁO VIÊN)</b></span>
+      <div style="display: flex; gap: 10px;">
+        <button class="btn btn-secondary" style="width: auto; padding: 6px 12px; margin:0;" onclick="resetRound()">🔄 Đua Lại</button>
+        <button class="btn btn-danger" style="width: auto; padding: 6px 12px; margin:0;" onclick="backToLobby()">🏠 Về Phòng Chờ</button>
+      </div>
+    </div>
+
+    <!-- Live Race Track -->
+    <div class="race-track-container">
+      <h4 style="margin-bottom: 10px;">🏆 ĐƯỜNG ĐUA THỜI GIAN THỰC</h4>
+      <div id="race-lanes"></div>
+    </div>
+
+    <!-- Drag Match Game -->
+    <div class="game-board">
+      <div class="column" id="trucks-column"></div>
+      <div class="column" id="targets-column"></div>
+    </div>
+  </div>
+
+  <script>
+    // --- FIREBASE CONFIG (Sử dụng Demo Database Public cho Game) ---
+    const firebaseConfig = {
+      databaseURL: "https://math-truck-race-default-rtdb.asia-southeast1.firebasedatabase.app/"
+    };
+    
+    // Initialize Firebase
+    if (!firebase.apps.length) {
+      firebase.initializeApp(firebaseConfig);
+    }
+    const db = firebase.database();
+
+    // Game Data Exercises (Ảnh bài tập)
+    const PAIRS_DATA = [
+      { left: "6 × 1", right: "36 : 6", val: 6 },
+      { left: "6 × 3", right: "2 × 9", val: 18 },
+      { left: "12 : 6", right: "6 : 3", val: 2 },
+      { left: "48 : 6", right: "4 × 2", val: 8 },
+      { left: "6 × 5", right: "5 × 6", val: 30 }
+    ];
+
+    // State Variables
+    let roomCode = "";
+    let playerName = "";
+    let isHost = false;
+    let playerId = "user_" + Math.random().toString(36).substr(2, 6);
+    let matchedCount = 0;
+    let roomRef = null;
+
+    // Web Audio API Sound Effects
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    function playSound(type) {
+      try {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+
+        if (type === 'correct') {
+          osc.frequency.setValueAtTime(523.25, audioCtx.currentTime); // C5
+          osc.frequency.setValueAtTime(659.25, audioCtx.currentTime + 0.1); // E5
+          gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+          osc.start();
+          osc.stop(audioCtx.currentTime + 0.25);
+        } else if (type === 'wrong') {
+          osc.frequency.setValueAtTime(220, audioCtx.currentTime); // A3
+          osc.frequency.setValueAtTime(164.81, audioCtx.currentTime + 0.1); // E3
+          gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+          osc.start();
+          osc.stop(audioCtx.currentTime + 0.25);
+        } else if (type === 'start') {
+          osc.frequency.setValueAtTime(880, audioCtx.currentTime);
+          gain.gain.setValueAtTime(0.4, audioCtx.currentTime);
+          osc.start();
+          osc.stop(audioCtx.currentTime + 0.4);
+        }
+      } catch(e) {}
+    }
+
+    // --- MAIN ROOM JOINING ---
+    function joinRoom() {
+      roomCode = document.getElementById('input-room').value.trim().toUpperCase();
+      playerName = document.getElementById('input-name').value.trim();
+      isHost = document.getElementById('chk-host').checked;
+
+      if (!roomCode) return alert("Vui lòng nhập Mã phòng!");
+      if (!playerName) return alert("Vui lòng nhập Tên của bạn!");
+
+      // Show lobby
+      document.getElementById('screen-login').classList.remove('active');
+      document.getElementById('screen-lobby').classList.add('active');
+      document.getElementById('lobby-title').innerText = "PHÒNG CHỜ: " + roomCode;
+      document.getElementById('display-room-code').innerText = roomCode;
+
+      // QR Code
+      document.getElementById('qrcode').innerHTML = "";
+      new QRCode(document.getElementById("qrcode"), {
+        text: window.location.href.split('?')[0] + "?room=" + roomCode,
+        width: 150, height: 150
+      });
+
+      // Firebase Sync Setup
+      roomRef = db.ref('rooms/' + roomCode);
+
+      // Register Player
+      roomRef.child('players/' + playerId).set({
+        name: playerName,
+        progress: 0,
+        isHost: isHost
+      });
+      roomRef.child('players/' + playerId).onDisconnect().remove();
+
+      // UI Config for Host
+      if (isHost) {
+        document.getElementById('host-controls').style.display = 'block';
+        document.getElementById('waiting-msg').style.display = 'none';
+        document.getElementById('host-bar').style.display = 'flex';
+        roomRef.child('state').set('LOBBY');
+      }
+
+      // Listen to Players List
+      roomRef.child('players').on('value', snapshot => {
+        const players = snapshot.val() || {};
+        const container = document.getElementById('players-container');
+        const lanesContainer = document.getElementById('race-lanes');
+        
+        container.innerHTML = "";
+        lanesContainer.innerHTML = "";
+        
+        let count = 0;
+        Object.keys(players).forEach(id => {
+          const p = players[id];
+          if (!p.isHost) {
+            count++;
+            // Lobby List
+            container.innerHTML += `<div class="player-chip">👤 ${p.name}</div>`;
+            
+            // Race Track Lanes
+            lanesContainer.innerHTML += `
+              <div class="lane">
+                <div class="lane-name">${p.name}</div>
+                <div class="track">
+                  <div class="runner" id="runner-${id}" style="left: ${p.progress}%">🚚</div>
+                  <div class="finish-line"></div>
+                </div>
+              </div>
+            `;
+          }
+        });
+        document.getElementById('player-count').innerText = count;
+      });
+
+      // Listen to Game State
+      roomRef.child('state').on('value', snapshot => {
+        const state = snapshot.val();
+        if (state === 'PLAYING') {
+          showGameScreen();
+        } else if (state === 'LOBBY') {
+          showLobbyScreen();
+        }
+      });
+    }
+
+    // Auto-fill Room Code from URL QR Code Scan
+    window.onload = () => {
+      const urlParams = new URLSearchParams(window.location.search);
+      const roomParam = urlParams.get('room');
+      if (roomParam) {
+        document.getElementById('input-room').value = roomParam.toUpperCase();
+      }
+    };
+
+    // --- HOST ACTIONS ---
+    function startGameByHost() {
+      roomRef.child('state').set('PLAYING');
+    }
+
+    function resetRound() {
+      // Reset all player progress
+      roomRef.child('players').once('value', snapshot => {
+        const players = snapshot.val() || {};
+        Object.keys(players).forEach(id => {
+          roomRef.child(`players/${id}/progress`).set(0);
+        });
+      });
+      roomRef.child('state').set('PLAYING');
+    }
+
+    function backToLobby() {
+      roomRef.child('state').set('LOBBY');
+    }
+
+    // --- SCREEN NAVIGATION ---
+    function showGameScreen() {
+      document.getElementById('screen-lobby').classList.remove('active');
+      document.getElementById('screen-game').classList.add('active');
+      playSound('start');
+      initMatchingGame();
+    }
+
+    function showLobbyScreen() {
+      document.getElementById('screen-game').classList.remove('active');
+      document.getElementById('screen-lobby').classList.add('active');
+    }
+
+    // --- MATCHING GAME LOGIC ---
+    function initMatchingGame() {
+      matchedCount = 0;
+      const trucksCol = document.getElementById('trucks-column');
+      const targetsCol = document.getElementById('targets-column');
+      
+      trucksCol.innerHTML = "";
+      targetsCol.innerHTML = "";
+
+      // Shuffle arrays
+      const trucksData = [...PAIRS_DATA].sort(() => Math.random() - 0.5);
+      const targetsData = [...PAIRS_DATA].sort(() => Math.random() - 0.5);
+
+      trucksData.forEach(item => {
+        const el = document.createElement('div');
+        el.className = 'truck-card';
+        el.draggable = true;
+        el.dataset.val = item.val;
+        el.innerHTML = `<span class="truck-icon">🚚</span> <span>${item.left}</span>`;
+        
+        // Touch & Drag events
+        el.addEventListener('dragstart', handleDragStart);
+        el.addEventListener('touchstart', handleTouchStart, {passive: false});
+        el.addEventListener('touchmove', handleTouchMove, {passive: false});
+        el.addEventListener('touchend', handleTouchEnd);
+
+        trucksCol.appendChild(el);
+      });
+
+      targetsData.forEach(item => {
+        const el = document.createElement('div');
+        el.className = 'target-slot';
+        el.dataset.val = item.val;
+        el.innerText = item.right;
+
+        el.addEventListener('dragover', e => e.preventDefault());
+        el.addEventListener('drop', handleDrop);
+
+        targetsCol.appendChild(el);
+      });
+    }
+
+    // Drag & Drop Handlers
+    let draggedElement = null;
+
+    function handleDragStart(e) {
+      draggedElement = this;
+      e.dataTransfer.setData('text/plain', this.dataset.val);
+    }
+
+    function handleDrop(e) {
+      e.preventDefault();
+      const targetVal = this.dataset.val;
+      const draggedVal = draggedElement ? draggedElement.dataset.val : e.dataTransfer.getData('text/plain');
+
+      if (targetVal === draggedVal && !this.classList.contains('correct')) {
+        // Correct match
+        playSound('correct');
+        this.classList.add('correct');
+        draggedElement.classList.add('matched');
+        matchedCount++;
+
+        // Update progress in Firebase
+        const progressPercent = (matchedCount / PAIRS_DATA.length) * 100;
+        roomRef.child(`players/${playerId}/progress`).set(progressPercent);
+
+        if (matchedCount === PAIRS_DATA.length) {
+          confetti({ particleCount: 120, spread: 70, origin: { y: 0.6 } });
+        }
+      } else {
+        playSound('wrong');
+      }
+    }
+
+    // Mobile Touch Support Handlers
+    let touchElem = null;
+    function handleTouchStart(e) {
+      touchElem = this;
+      this.style.opacity = '0.5';
+    }
+    function handleTouchMove(e) {
+      e.preventDefault();
+      const touch = e.touches[0];
+      this.style.position = 'fixed';
+      this.style.left = (touch.clientX - 50) + 'px';
+      this.style.top = (touch.clientY - 25) + 'px';
+      this.style.zIndex = '1000';
+    }
+    function handleTouchEnd(e) {
+      this.style.position = 'static';
+      this.style.opacity = '1';
+      const touch = e.changedTouches[0];
+      const target = document.elementFromPoint(touch.clientX, touch.clientY);
+      
+      if (target && target.classList.contains('target-slot')) {
+        draggedElement = this;
+        handleDrop.call(target, e);
+      }
+    }
+  </script>
+</body>
+</html>
